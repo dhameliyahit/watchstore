@@ -26,6 +26,7 @@ app.get("/", (req, res) => {
 });
 
 import mongoose from "mongoose";
+import { listImagesFromGithub } from "./utils/githubUpload.js";
 app.get("/health", async (req, res) => {
   const dbState = mongoose.connection.readyState;
   // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
