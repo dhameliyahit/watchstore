@@ -98,3 +98,43 @@ try {
     filename,
   };
 };
+
+export const deleteImageFromGithub = async (filename) => {
+  const fileUrl = `${githubBase}/${filename}`;
+
+  // 1️⃣ Get SHA
+  const data = await ghRequest(`${fileUrl}?ref=${branch}`);
+  const sha = data.sha;
+
+  // 2️⃣ Delete file
+  await ghRequest(fileUrl, {
+    method: "DELETE",
+    body: JSON.stringify({
+      message: `delete product image ${filename}`,
+      sha,
+      branch,
+    }),
+  });
+};
+
+export const extractFilename = (url) => {
+  return url.split("/").pop();
+};
+
+export const listImagesFromGithub = async () => {
+  const data = await ghRequest(`${githubBase}?ref=${branch}`);
+
+  // Filter only image files
+  const images = data.filter(
+    (item) =>
+      item.type === "file" &&
+      [".jpg", ".jpeg", ".png", ".webp", ".gif"].some((ext) =>
+        item.name.toLowerCase().endsWith(ext)
+      )
+  );
+
+  return {
+    count: images.length,
+    images,
+  };
+};

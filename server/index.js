@@ -27,7 +27,6 @@ app.get("/", (req, res) => {
 
 import mongoose from "mongoose";
 app.get("/health", async (req, res) => {
-  
   const dbState = mongoose.connection.readyState;
   // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
 
@@ -45,6 +44,29 @@ app.get("/health", async (req, res) => {
     message: "Database connection failed",
   });
 });
+
+app.get("/list", async (req, res) => {
+  try {
+    const { count, images } = await listImagesFromGithub();
+
+    res.status(200).json({
+      success: true,
+      totalImages: count,
+      images: images.map((img) => ({
+        name: img.name,
+        url: `${githubJsdelivrBase}/${img.name}`,
+      })),
+    });
+  } catch (error) {
+    console.error("GitHub list error:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch images from GitHub",
+    });
+  }
+});
+
 
 app.use("/api/users", userRoutes);
 app.use("/api/products", productRoutes);

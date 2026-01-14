@@ -1,5 +1,5 @@
 import Product from "../models/product.model.js";
-import { uploadImageToGithub } from "../utils/githubUpload.js";
+import { deleteImageFromGithub, extractFilename, uploadImageToGithub } from "../utils/githubUpload.js";
 
 const parseList = (value) =>
   value
@@ -47,9 +47,7 @@ export const createProduct = async (req, res) => {
 
     let parsedCaseSize;
     if (caseSize !== undefined && caseSize !== null) {
-      parsedCaseSize = Number(
-        String(caseSize).replace(/[^0-9.]/g, "")
-      );
+      parsedCaseSize = Number(String(caseSize).replace(/[^0-9.]/g, ""));
 
       if (isNaN(parsedCaseSize)) {
         return res.status(400).json({
@@ -290,6 +288,17 @@ export const deleteProduct = async (req, res) => {
 
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
+  }
+  if (Array.isArray(product.images)) {
+    for (const imageUrl of product.images) {
+      try {
+        const filename = extractFilename(imageUrl);
+        await deleteImageFromGithub(filename);
+      } catch (imgErr) {
+        console.error("Image delete failed:", imgErr.message);
+        // continue deleting product even if image delete fails
+      }
+    }
   }
 
   await product.deleteOne();

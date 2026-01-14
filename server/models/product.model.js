@@ -8,7 +8,7 @@ const productSchema = new mongoose.Schema(
     sku: { type: String, trim: true, unique: true, sparse: true },
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
-    currency: { type: String, default: "USD", trim: true },
+    currency: { type: String, default: "INR", trim: true },
     images: [{ type: String, trim: true }],
     stock: { type: Number, default: 0, min: 0 },
     caseSize: { type: Number, min: 0 },
