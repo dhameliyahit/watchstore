@@ -11,7 +11,7 @@ import WishlistPage from "./pages/WishlistPage";
 import PoliciesPage from "./pages/PoliciesPage";
 import DropsPage from "./pages/DropsPage";
 import CashfreeSuccess from "./pages/CashfreeSuccess";
-import "react-quill/dist/quill.snow.css";
+
 
 const App = () => {
   return (
