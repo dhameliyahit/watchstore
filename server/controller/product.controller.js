@@ -18,66 +18,94 @@ const parseBool = (value) =>
  * @access Private (JWT + Admin)
  */
 export const createProduct = async (req, res) => {
-  const {
-    name,
-    brand,
-    collection,
-    sku,
-    description,
-    price,
-    currency,
-    images,
-    stock,
-    caseSize,
-    caseMaterial,
-    strapMaterial,
-    movement,
-    waterResistance,
-    gender,
-    categories,
-    isActive,
-  } = req.body;
+  try {
+    const {
+      name,
+      brand,
+      collection,
+      sku,
+      description,
+      price,
+      currency,
+      images,
+      stock,
+      caseSize,
+      caseMaterial,
+      strapMaterial,
+      movement,
+      waterResistance,
+      gender,
+      categories,
+      isActive,
+    } = req.body;
 
-  if (!name || !brand || price === undefined) {
-    return res
-      .status(400)
-      .json({ message: "name, brand, and price are required" });
-  }
+    if (!name || !brand || price === undefined) {
+      return res.status(400).json({
+        message: "name, brand, and price are required",
+      });
+    }
 
-  const files = req.files || [];
-  const uploadedUrls = [];
+    let parsedCaseSize;
+    if (caseSize !== undefined && caseSize !== null) {
+      parsedCaseSize = Number(
+        String(caseSize).replace(/[^0-9.]/g, "")
+      );
 
-  for (const file of files) {
-    const result = await uploadImageToGithub({
-      buffer: file.buffer,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
+      if (isNaN(parsedCaseSize)) {
+        return res.status(400).json({
+          message: "caseSize must be a number (example: 40)",
+        });
+      }
+    }
+
+    const files = req.files || [];
+    const uploadedUrls = [];
+
+    for (const file of files) {
+      const result = await uploadImageToGithub({
+        buffer: file.buffer,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+      });
+
+      uploadedUrls.push(result.url);
+    }
+
+    const product = await Product.create({
+      name,
+      brand,
+      collection,
+      sku,
+      description,
+      price,
+      currency,
+      images: uploadedUrls.length ? uploadedUrls : images,
+      stock: Number(stock) || 0,
+      caseSize: parsedCaseSize,
+      caseMaterial,
+      strapMaterial,
+      movement,
+      waterResistance,
+      gender,
+      categories,
+      isActive,
     });
 
-    uploadedUrls.push(result.url);
+    return res.status(201).json(product);
+  } catch (error) {
+    console.error("Create product error:", error);
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: error.errors,
+      });
+    }
+
+    return res.status(500).json({
+      message: "Internal server error",
+    });
   }
-
-  const product = await Product.create({
-    name,
-    brand,
-    collection,
-    sku,
-    description,
-    price,
-    currency,
-    images: uploadedUrls.length ? uploadedUrls : images,
-    stock: stock ?? 0,
-    caseSize: caseSize ?? undefined,
-    caseMaterial,
-    strapMaterial,
-    movement,
-    waterResistance,
-    gender,
-    categories,
-    isActive,
-  });
-
-  res.status(201).json(product);
 };
 
 /**
