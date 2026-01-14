@@ -1,5 +1,5 @@
 import crypto from "crypto";
-
+import "dotenv/config";
 const mimeToExt = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -11,7 +11,7 @@ const token = process.env.GITHUB_TOKEN;
 const owner = process.env.GITHUB_USER || process.env.GITHUB_OWNER;
 const repo = process.env.GITHUB_REPO;
 const branch = process.env.GITHUB_BRANCH || "main";
-const folder = process.env.GITHUB_FOLDER || "uploads";
+const folder = process.env.GITHUB_FOLDER || "images";
 
 if (!owner || !repo || !token) {
   throw new Error(
@@ -25,8 +25,7 @@ const githubJsdelivrBase = `https://cdn.jsdelivr.net/gh/${owner}/${repo}@${branc
 const buildFilename = (originalName, mimeType) => {
   const name = (originalName || "").trim();
   const lastDot = name.lastIndexOf(".");
-  const extFromName =
-    lastDot > -1 ? name.slice(lastDot).toLowerCase() : "";
+  const extFromName = lastDot > -1 ? name.slice(lastDot).toLowerCase() : "";
   const extFromMime = mimeToExt[mimeType] || "";
   const ext = extFromName || extFromMime || ".jpg";
   const id = crypto.randomBytes(6).toString("hex");
@@ -64,34 +63,38 @@ const getExistingSha = async (url) => {
   }
 };
 
-export const uploadImageToGithub = async ({ buffer, originalName, mimeType }) => {
+export const uploadImageToGithub = async ({
+  buffer,
+  originalName,
+  mimeType,
+}) => {
   const filename = buildFilename(originalName, mimeType);
   const fileUrl = `${githubBase}/${filename}`;
   const existingSha = await getExistingSha(fileUrl);
 
-const uploadPayload = (sha) => ({
-  message: `upload product image ${filename}`,
-  content: buffer.toString("base64"),
-  branch,
-  ...(sha ? { sha } : {}),
-});
-
-try {
-  await ghRequest(fileUrl, {
-    method: "PUT",
-    body: JSON.stringify(uploadPayload(existingSha)),
+  const uploadPayload = (sha) => ({
+    message: `upload product image ${filename}`,
+    content: buffer.toString("base64"),
+    branch,
+    ...(sha ? { sha } : {}),
   });
-} catch (error) {
-  if (error.status === 409) {
-    const freshSha = await getExistingSha(fileUrl);
+
+  try {
     await ghRequest(fileUrl, {
       method: "PUT",
-      body: JSON.stringify(uploadPayload(freshSha)),
+      body: JSON.stringify(uploadPayload(existingSha)),
     });
-  } else {
-    throw error;
+  } catch (error) {
+    if (error.status === 409) {
+      const freshSha = await getExistingSha(fileUrl);
+      await ghRequest(fileUrl, {
+        method: "PUT",
+        body: JSON.stringify(uploadPayload(freshSha)),
+      });
+    } else {
+      throw error;
+    }
   }
-}
 
   return {
     url: `${githubJsdelivrBase}/${filename}`,
@@ -122,19 +125,68 @@ export const extractFilename = (url) => {
 };
 
 export const listImagesFromGithub = async () => {
-  const data = await ghRequest(`${githubBase}?ref=${branch}`);
+  try {
+    const data = await ghRequest(`${githubBase}?ref=${branch}`);
 
-  // Filter only image files
-  const images = data.filter(
-    (item) =>
-      item.type === "file" &&
-      [".jpg", ".jpeg", ".png", ".webp", ".gif"].some((ext) =>
-        item.name.toLowerCase().endsWith(ext)
-      )
-  );
+    if (!Array.isArray(data)) return { count: 0, images: [] };
 
-  return {
-    count: images.length,
-    images,
-  };
+    const images = data.filter(
+      (item) =>
+        item.type === "file" &&
+        [".jpg", ".jpeg", ".png", ".webp", ".gif"].some((ext) =>
+          item.name.toLowerCase().endsWith(ext)
+        )
+    );
+
+    return { count: images.length, images };
+  } catch (error) {
+    if (error.status === 404) {
+      return { count: 0, images: [] };
+    }
+    throw error;
+  }
 };
+
+export const deleteAllImagesFromGithub = async () => {
+  try {
+    // 1️⃣ Get list of files in folder
+    const files = await ghRequest(`${githubBase}?ref=${branch}`);
+
+    if (!Array.isArray(files) || files.length === 0) {
+      console.log("GitHub folder already empty");
+      return { deleted: 0 };
+    }
+
+    let deletedCount = 0;
+
+    // 2️⃣ Delete each file
+    for (const file of files) {
+      if (file.type !== "file") continue;
+
+      try {
+        await ghRequest(file.url, {
+          method: "DELETE",
+          body: JSON.stringify({
+            message: `delete ${file.name}`,
+            sha: file.sha,
+            branch,
+          }),
+        });
+
+        deletedCount++;
+        console.log(`Deleted: ${file.name}`);
+      } catch (err) {
+        console.error(`Failed to delete ${file.name}:`, err.message);
+      }
+    }
+
+    return {
+      message: "All images deleted",
+      deleted: deletedCount,
+    };
+  } catch (error) {
+    console.error("Delete all images error:", error);
+    throw error;
+  }
+};
+// await deleteAllImagesFromGithub();

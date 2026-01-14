@@ -68,7 +68,6 @@ app.get("/list", async (req, res) => {
   }
 });
 
-
 app.use("/api/users", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
