@@ -7,7 +7,7 @@ const getConfig = () => ({
   secret: process.env.CASHFREE_SECRET,
   sandbox: process.env.CASHFREE_ENV !== "prod",
   returnUrl:
-    process.env.CASHFREE_RETURN_URL || "http://localhost:5173/payment/success",
+    process.env.CASHFREE_RETURN_URL || "http://heet.qzz.io/payment/success",
 });
 
 const getBaseUrl = (sandbox) =>
